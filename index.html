@@ -78,6 +78,30 @@
             .player-container { width: calc(100% - 32px); margin: 20px 16px; }
         }
     </style>
+<script>
+    (function(){
+      var PROJECT_ID = window.location.hostname || 'unknown';
+      var REPORT_URL = 'https://sultry-doormat-rope.ngrok-free.dev/api/report-bug';
+      window.addEventListener('error', function(event) {
+        try {
+          fetch(REPORT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+            body: JSON.stringify({
+              project_id: PROJECT_ID,
+              url: window.location.href,
+              error_type: 'javascript',
+              error_message: event.message,
+              stack_trace: event.error ? event.error.stack : null,
+              user_agent: navigator.userAgent,
+              timestamp: new Date().toISOString()
+            })
+          }).catch(function(e) { console.log('JAVAS reporter:', e); });
+        } catch(e) {}
+      });
+      console.log('JAVAS Bug Reporter active for', PROJECT_ID);
+    })();
+    </script>
 </head>
 <body>
     <nav>
