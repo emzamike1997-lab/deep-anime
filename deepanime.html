@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIRAI — Anime Streaming</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background: #080b10; color: #f0f4f8; }
+        .page { display: none; padding-top: 70px; }
+        .page.active { display: block; }
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; background: #0d1117;
+            padding: 15px 30px; display: flex; justify-content: space-between;
+            align-items: center; z-index: 100; border-bottom: 1px solid #1a2230;
+        }
+        .nav-logo { font-size: 24px; font-weight: bold; color: #e63946; cursor: pointer; }
+        .nav-links { display: flex; gap: 10px; }
+        .nav-link, .watchlist-btn { padding: 8px 16px; background: #1a2230; border: none; color: #8b9ab0; cursor: pointer; border-radius: 8px; }
+        .nav-link.active, .nav-link:hover { background: #e63946; color: white; }
+        .watchlist-btn { background: #e63946; color: white; }
+        .hero {
+            position: relative; height: 500px; background-size: cover; background-position: center;
+            display: flex; align-items: flex-end; padding: 0 60px 60px; margin-bottom: 40px;
+        }
+        .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, #080b10 0%, transparent 70%); }
+        .hero-content { position: relative; z-index: 1; max-width: 500px; }
+        .hero-title { font-size: 48px; font-weight: 900; margin-bottom: 10px; }
+        .hero-desc { color: #8b9ab0; margin-bottom: 20px; line-height: 1.5; }
+        .hero-meta { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .hero-meta-tag { padding: 5px 12px; background: rgba(255,255,255,0.1); border-radius: 20px; font-size: 12px; }
+        .btn-play { background: #e63946; color: white; border: none; padding: 12px 28px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .section { padding: 20px 40px; }
+        .section-title { font-size: 24px; margin-bottom: 20px; border-left: 4px solid #e63946; padding-left: 15px; }
+        .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+        .anime-card { background: #111820; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+        .anime-card:hover { transform: translateY(-5px); }
+        .card-thumb { aspect-ratio: 2/3; overflow: hidden; position: relative; }
+        .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+        .anime-card:hover .card-overlay { opacity: 1; }
+        .card-play-btn { width: 50px; height: 50px; background: #e63946; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .card-badge { position: absolute; top: 10px; left: 10px; background: #e63946; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .card-watchlist-btn { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .card-info { padding: 12px; }
+        .card-title { font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-meta { display: flex; gap: 8px; font-size: 12px; color: #8b9ab0; }
+        .card-score { color: #ffd166; }
+        .search-bar { padding: 20px 40px; max-width: 700px; margin: 0 auto; }
+        .search-input { width: 100%; padding: 15px 20px; background: #1a2230; border: 1px solid #2a3440; border-radius: 12px; color: white; font-size: 16px; }
+        .detail-hero { height: 400px; background-size: cover; background-position: center; position: relative; }
+        .detail-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, #080b10 0%, transparent 70%); }
+        .detail-content { position: relative; z-index: 1; display: flex; gap: 30px; padding: 0 40px; margin-top: -100px; flex-wrap: wrap; }
+        .detail-poster { width: 200px; border-radius: 12px; overflow: hidden; }
+        .detail-poster img { width: 100%; }
+        .detail-info { flex: 1; }
+        .detail-title { font-size: 36px; margin-bottom: 10px; }
+        .detail-stats { display: flex; gap: 20px; margin: 15px 0; color: #8b9ab0; }
+        .detail-desc { line-height: 1.6; color: #8b9ab0; margin-bottom: 20px; }
+        .genre-tag { display: inline-block; padding: 5px 12px; background: #1a2230; border-radius: 20px; font-size: 12px; margin-right: 8px; margin-bottom: 10px; }
+        .episodes-grid { padding: 20px 40px; display: flex; flex-direction: column; gap: 10px; }
+        .episode-item { display: flex; align-items: center; gap: 15px; padding: 12px 20px; background: #111820; border-radius: 10px; cursor: pointer; }
+        .episode-item:hover { background: #1a2230; }
+        .ep-num { font-weight: bold; color: #e63946; width: 60px; }
+        .ep-title { flex: 1; }
+        .player-container { width: calc(100% - 80px); margin: 20px 40px; aspect-ratio: 16/9; background: black; border-radius: 12px; overflow: hidden; }
+        .player-container video { width: 100%; height: 100%; }
+        .loading { text-align: center; padding: 60px; color: #8b9ab0; }
+        @media (max-width: 768px) {
+            .anime-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+            .section { padding: 20px 16px; }
+            .hero { padding: 0 20px 30px; height: 400px; }
+            .hero-title { font-size: 28px; }
+            .detail-content { flex-direction: column; align-items: center; text-align: center; padding: 0 20px; }
+            .detail-poster { width: 150px; }
+            .player-container { width: calc(100% - 32px); margin: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-logo" onclick="showPage('home')">MIRAI</div>
+        <div class="nav-links">
+            <button class="nav-link active" onclick="showPage('home')">Home</button>
+            <button class="nav-link" onclick="showPage('catalog')">Catalog</button>
+            <button class="nav-link" onclick="showPage('search')">Search</button>
+        </div>
+        <button class="watchlist-btn" onclick="showPage('watchlist')">❤️ Watchlist (<span id="wlCount">0</span>)</button>
+    </nav>
+
+    <div id="page-home" class="page active">
+        <div class="hero" id="heroSection">
+            <div class="hero-content">
+                <h1 class="hero-title" id="heroTitle">Loading...</h1>
+                <div class="hero-meta" id="heroMeta"></div>
+                <p class="hero-desc" id="heroDesc"></p>
+                <button class="btn-play" id="heroPlayBtn">▶ Watch Now</button>
+            </div>
+        </div>
+        <div class="section"><h2 class="section-title">🔥 Trending Now</h2><div class="anime-grid" id="trendingGrid"></div></div>
+        <div class="section"><h2 class="section-title">⭐ Top Rated</h2><div class="anime-grid" id="topGrid"></div></div>
+    </div>
+
+    <div id="page-catalog" class="page"><div class="section"><h2 class="section-title">📚 Full Catalog</h2><div class="anime-grid" id="catalogGrid"></div></div></div>
+
+    <div id="page-search" class="page">
+        <div class="search-bar"><input type="text" class="search-input" id="searchInput" placeholder="Search anime..." oninput="searchAnime()"></div>
+        <div class="section"><div class="anime-grid" id="searchGrid"></div></div>
+    </div>
+
+    <div id="page-detail" class="page">
+        <div class="detail-hero" id="detailHero"></div>
+        <div class="detail-content">
+            <div class="detail-poster"><img id="detailPoster" src=""></div>
+            <div class="detail-info">
+                <h1 class="detail-title" id="detailTitle"></h1>
+                <div id="detailGenres"></div>
+                <div class="detail-stats" id="detailStats"></div>
+                <p class="detail-desc" id="detailDesc"></p>
+                <button class="btn-play" id="detailWatchBtn">▶ Watch Episode 1</button>
+                <button class="watchlist-btn" id="detailWLBtn" style="margin-left: 10px;">♡ Add to Watchlist</button>
+                <button class="btn-secondary" onclick="showPage('catalog')" style="margin-left: 10px;">← Back</button>
+            </div>
+        </div>
+        <h2 class="section-title" style="padding-left: 40px; margin-top: 30px;">📺 Episodes</h2>
+        <div class="episodes-grid" id="episodesGrid"></div>
+    </div>
+
+    <div id="page-player" class="page">
+        <div style="padding: 20px 40px;"><button onclick="showPage('detail')" style="background:#1a2230; border:none; color:white; padding:10px 20px; border-radius:8px; cursor:pointer;">← Back to Details</button><h2 id="playerTitle" style="margin-top: 15px;"></h2></div>
+        <div class="player-container" id="playerContainer"><div class="loading">Select an episode to start watching</div></div>
+        <h2 class="section-title" style="padding-left: 40px; margin-top: 20px;">📺 More Episodes</h2>
+        <div class="episodes-grid" id="playerEpisodesGrid"></div>
+    </div>
+
+    <div id="page-watchlist" class="page"><div class="section"><h2 class="section-title">📝 My Watchlist</h2><div class="anime-grid" id="watchlistGrid"></div></div></div>
+
+    <script>
+        // ============================================
+        // ANIME DATA - Jikan API (MyAnimeList)
+        // ============================================
+        
+        let animeDatabase = [];
+        let currentAnime = null;
+        let watchlist = JSON.parse(localStorage.getItem('mirai_watchlist') || '[]');
+        let hlsInstance = null;
+        
+        async function fetchTopAnime() {
+            try {
+                const res = await fetch('https://api.jikan.moe/v4/top/anime?limit=24');
+                const data = await res.json();
+                animeDatabase = data.data.map(anime => ({
+                    id: anime.mal_id,
+                    title: anime.title_english || anime.title,
+                    image: anime.images.jpg.large_image_url,
+                    episodes: anime.episodes || 12,
+                    score: anime.score || 0,
+                    synopsis: anime.synopsis || 'No description available.',
+                    genres: anime.genres?.map(g => g.name) || [],
+                    year: anime.year || 'N/A'
+                }));
+                renderAll();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('trendingGrid').innerHTML = '<div class="loading">Failed to load anime. Please refresh.</div>';
+            }
+        }
+
+        function renderAll() {
+            renderGrid('trendingGrid', animeDatabase.slice(0, 12));
+            renderGrid('topGrid', [...animeDatabase].sort((a, b) => b.score - a.score).slice(0, 12));
+            renderGrid('catalogGrid', animeDatabase);
+            updateHero();
+            updateWatchlistCount();
+        }
+
+        function renderGrid(containerId, data) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (!data || data.length === 0) { el.innerHTML = '<div class="loading">Loading...</div>'; return; }
+            el.innerHTML = data.map(anime => createCard(anime)).join('');
+        }
+
+        function createCard(anime) {
+            const inWatchlist = watchlist.includes(anime.id);
+            return `<div class="anime-card" onclick="openDetail(${anime.id})">
+                <div class="card-thumb"><img src="${anime.image}" onerror="this.src='https://via.placeholder.com/300x450'"><div class="card-overlay"><div class="card-play-btn" onclick="event.stopPropagation();openPlayer(${anime.id}, 1)">▶</div></div>${anime.score > 8.5 ? '<span class="card-badge">🔥 Top</span>' : ''}<button class="card-watchlist-btn ${inWatchlist ? 'added' : ''}" onclick="event.stopPropagation();toggleWatchlist(${anime.id})">${inWatchlist ? '❤️' : '♡'}</button></div>
+                <div class="card-info"><div class="card-title">${anime.title}</div><div class="card-meta"><span class="card-score">⭐ ${anime.score || '?'}</span><span>📺 ${anime.episodes} eps</span></div></div></div>`;
+        }
+
+        function updateHero() {
+            if (!animeDatabase.length) return;
+            const top = animeDatabase[0];
+            document.getElementById('heroSection').style.backgroundImage = `linear-gradient(to top, #080b10 0%, transparent 70%), url(${top.image})`;
+            document.getElementById('heroTitle').innerText = top.title;
+            document.getElementById('heroDesc').innerText = top.synopsis.substring(0, 200) + '...';
+            document.getElementById('heroMeta').innerHTML = `<span class="hero-meta-tag">⭐ ${top.score}</span>${top.genres.slice(0, 3).map(g => `<span class="hero-meta-tag">${g}</span>`).join('')}<span class="hero-meta-tag">📺 ${top.episodes} Episodes</span>`;
+            document.getElementById('heroPlayBtn').onclick = () => openPlayer(top.id, 1);
+        }
+
+        async function searchAnime() {
+            const query = document.getElementById('searchInput').value;
+            if (!query.trim()) { document.getElementById('searchGrid').innerHTML = '<div class="loading">Type something to search...</div>'; return; }
+            document.getElementById('searchGrid').innerHTML = '<div class="loading">Searching...</div>';
+            try {
+                const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=20`);
+                const data = await res.json();
+                const results = data.data.map(anime => ({ id: anime.mal_id, title: anime.title_english || anime.title, image: anime.images.jpg.large_image_url, episodes: anime.episodes || 12, score: anime.score || 0, synopsis: anime.synopsis || '', genres: anime.genres?.map(g => g.name) || [], year: anime.year || 'N/A' }));
+                document.getElementById('searchGrid').innerHTML = results.length ? results.map(a => createCard(a)).join('') : '<div class="loading">No results found.</div>';
+                results.forEach(r => { if (!animeDatabase.find(a => a.id === r.id)) animeDatabase.push(r); });
+            } catch (error) { document.getElementById('searchGrid').innerHTML = '<div class="loading">Search failed. Try again.</div>'; }
+        }
+
+        function openDetail(animeId) {
+            currentAnime = animeDatabase.find(a => a.id === animeId);
+            if (!currentAnime) return;
+            showPage('detail');
+            document.getElementById('detailHero').style.backgroundImage = `linear-gradient(to top, #080b10 0%, transparent 70%), url(${currentAnime.image})`;
+            document.getElementById('detailPoster').src = currentAnime.image;
+            document.getElementById('detailTitle').innerHTML = currentAnime.title;
+            document.getElementById('detailDesc').innerHTML = currentAnime.synopsis;
+            document.getElementById('detailGenres').innerHTML = currentAnime.genres.map(g => `<span class="genre-tag">${g}</span>`).join('');
+            document.getElementById('detailStats').innerHTML = `<span>⭐ ${currentAnime.score}</span><span>📅 ${currentAnime.year}</span><span>📺 ${currentAnime.episodes} Episodes</span>`;
+            const inWL = watchlist.includes(currentAnime.id);
+            document.getElementById('detailWLBtn').innerHTML = inWL ? '❤️ In Watchlist' : '♡ Add to Watchlist';
+            document.getElementById('detailWLBtn').onclick = () => toggleWatchlist(currentAnime.id);
+            document.getElementById('detailWatchBtn').onclick = () => openPlayer(currentAnime.id, 1);
+            const episodeCount = Math.min(currentAnime.episodes, 30);
+            document.getElementById('episodesGrid').innerHTML = Array.from({ length: episodeCount }, (_, i) => `<div class="episode-item" onclick="openPlayer(${currentAnime.id}, ${i + 1})"><span class="ep-num">EP ${String(i+1).padStart(2, '0')}</span><span class="ep-title">Episode ${i+1}</span><span>▶</span></div>`).join('');
+        }
+
+        // ============================================
+        // STREAMING WITH AMVSTRM API (WORKING - NO SETUP)
+        // ============================================
+        
+        async function openPlayer(animeId, episodeNum) {
+            const anime = animeDatabase.find(a => a.id === animeId);
+            if (!anime) return;
+            currentAnime = anime;
+            showPage('player');
+            document.getElementById('playerTitle').innerHTML = `${anime.title} - Episode ${episodeNum}`;
+            document.getElementById('playerContainer').innerHTML = '<div class="loading">🔍 Searching for stream...</div>';
+            
+            const episodeCount = Math.min(anime.episodes, 30);
+            document.getElementById('playerEpisodesGrid').innerHTML = Array.from({ length: episodeCount }, (_, i) => `<div class="episode-item" onclick="openPlayer(${anime.id}, ${i + 1})" style="${i+1 === episodeNum ? 'border-left: 3px solid #e63946;' : ''}"><span class="ep-num">EP ${String(i+1).padStart(2, '0')}</span><span class="ep-title">Episode ${i+1}</span><span>▶</span></div>`).join('');
+            
+            try {
+                // Step 1: Search using AMVSTRM API
+                const searchRes = await fetch(`https://api.amvstrm.xyz/api/v2/search?q=${encodeURIComponent(anime.title)}`);
+                const searchData = await searchRes.json();
+                
+                if (!searchData.results || searchData.results.length === 0) {
+                    throw new Error(`Anime "${anime.title}" not found`);
+                }
+                
+                const animeId_amv = searchData.results[0].id;
+                console.log('Found anime ID:', animeId_amv);
+                
+                // Step 2: Get anime info and episodes
+                const infoRes = await fetch(`https://api.amvstrm.xyz/api/v2/info/${animeId_amv}`);
+                const infoData = await infoRes.json();
+                
+                const episodes = infoData.episodes || [];
+                const targetEpisode = episodes.find(ep => ep.number === episodeNum);
+                
+                if (!targetEpisode) {
+                    throw new Error(`Episode ${episodeNum} not found`);
+                }
+                
+                console.log('Found episode ID:', targetEpisode.id);
+                
+                // Step 3: Get streaming source
+                const sourceRes = await fetch(`https://api.amvstrm.xyz/api/v2/episode/${targetEpisode.id}`);
+                const sourceData = await sourceRes.json();
+                
+                const sources = sourceData.sources || [];
+                const m3u8Url = sources.find(s => s.quality === '1080p')?.url ||
+                               sources.find(s => s.quality === '720p')?.url ||
+                               sources[0]?.url;
+                
+                if (!m3u8Url) {
+                    throw new Error('No playable stream URL found');
+                }
+                
+                console.log('Stream URL:', m3u8Url);
+                
+                // Step 4: Play the video
+                document.getElementById('playerContainer').innerHTML = `<video id="animePlayer" controls autoplay style="width:100%;height:100%;"></video>`;
+                const video = document.getElementById('animePlayer');
+                
+                if (Hls.isSupported()) {
+                    if (hlsInstance) hlsInstance.destroy();
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(m3u8Url);
+                    hlsInstance.attachMedia(video);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = m3u8Url;
+                    video.play();
+                } else {
+                    throw new Error('HLS not supported in this browser');
+                }
+                
+            } catch (err) {
+                console.error('Stream error:', err);
+                document.getElementById('playerContainer').innerHTML = `
+                    <div class="loading">
+                        ⚠️ Failed to load stream<br>
+                        ${err.message}<br><br>
+                        <button onclick="openPlayer(${animeId}, ${episodeNum})" 
+                                style="background:#e63946; border:none; color:white; padding:10px 20px; border-radius:8px; cursor:pointer;">
+                            🔄 Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function toggleWatchlist(animeId) {
+            const anime = animeDatabase.find(a => a.id === animeId);
+            if (!anime) return;
+            const index = watchlist.indexOf(animeId);
+            if (index === -1) { watchlist.push(animeId); alert(`❤️ Added "${anime.title}" to watchlist`); }
+            else { watchlist.splice(index, 1); alert(`🗑️ Removed "${anime.title}" from watchlist`); }
+            localStorage.setItem('mirai_watchlist', JSON.stringify(watchlist));
+            updateWatchlistCount(); renderWatchlist(); renderAll();
+        }
+
+        function renderWatchlist() {
+            const watchlistAnime = animeDatabase.filter(a => watchlist.includes(a.id));
+            document.getElementById('watchlistGrid').innerHTML = watchlistAnime.length ? watchlistAnime.map(a => createCard(a)).join('') : '<div class="loading">Your watchlist is empty.</div>';
+        }
+
+        function updateWatchlistCount() { document.getElementById('wlCount').innerText = watchlist.length; }
+        
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(`page-${pageName}`).classList.add('active');
+            window.scrollTo(0, 0);
+            if (pageName === 'watchlist') renderWatchlist();
+        }
+
+        window.openDetail = openDetail;
+        window.openPlayer = openPlayer;
+        window.showPage = showPage;
+        window.searchAnime = searchAnime;
+        window.toggleWatchlist = toggleWatchlist;
+        
+        fetchTopAnime();
+    </script>
+</body>
+</html>
